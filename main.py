@@ -9,9 +9,8 @@ from pathlib import Path
 from flask import Flask
 import telebot
 from instagrapi import Client
-from instagrapi.exceptions import ClientError
 
-# 1. RENDERDA KIRITILGAN MAXFIY MA'LUMOTLARNI O'QISH
+# 1. RENDER'DAN MAXFIY KALITLARNI O'QISH
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 INSTAGRAM_USERNAME = os.getenv("INSTAGRAM_USERNAME")
 INSTAGRAM_PASSWORD = os.getenv("INSTAGRAM_PASSWORD")
@@ -33,7 +32,7 @@ cl.user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (K
 processed_text_ids = set()
 processed_video_ids = set()
 
-# 2. MA'LUMOTLAR BAZASI
+# 2. MA'LUMOTLAR BAZASI SETUP
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
@@ -42,7 +41,7 @@ def init_db():
     conn.commit()
     conn.close()
 
-# 3. INSTAGRAM LOGIKASI
+# 3. INSTAGRAM LOGGIN TIZIMI
 def login_instagram():
     session_path = Path(INSTAGRAM_SESSION_FILE)
     try:
@@ -55,15 +54,22 @@ def login_instagram():
             cl.dump_settings(INSTAGRAM_SESSION_FILE)
             logger.info("✅ Instagram yangitdan login bo'ldi")
     except Exception as e:
-        logger.error(f"Instagram login xatosi: {e}")
+        logger.error(f"❌ Instagram login xatosi: {e}")
+        raise e
 
+# 4. INSTAGRAM DIRECT MONITORING (POLLING)
 def instagram_polling():
     while True:
         try:
-            threads = cl.direct_threads(amount=10)
+            if not cl.user_id:
+                login_instagram()
+                
+            threads = cl.direct_threads(amount=5)
             for thread in threads:
                 for msg in thread.messages:
                     msg_id = str(msg.id)
+                    
+                    # Telegram ID bog'lash qismi
                     if msg.item_type == "text" and msg_id not in processed_text_ids:
                         processed_text_ids.add(msg_id)
                         text = (msg.text or "").strip()
@@ -81,6 +87,7 @@ def instagram_polling():
                                 cl.direct_send(f"✅ Profilingiz (@{sender_name}) ulandi!", thread_ids=[thread.id])
                                 bot.send_message(tg_id, f"🎉 Akkauntingiz (@{sender_name}) muvaffaqiyatli ulandi!")
 
+                # Videolarni ilib olish qismi
                 conn = sqlite3.connect(DB_FILE)
                 linked_users = conn.execute("SELECT * FROM users WHERE instagram_user_id IS NOT NULL").fetchall()
                 conn.close()
@@ -114,14 +121,17 @@ def instagram_polling():
                                     with open(path, 'rb') as video:
                                         bot.send_video(tg_id, video, caption="Instadan kelgan video 🚀")
                                     os.remove(path)
-        except ClientError:
-            time.sleep(60)
+                                    
         except Exception as e:
-            logger.error(f"Polling xatosi: {e}")
-            time.sleep(15)
-        time.sleep(30)
+            logger.error(f"⚠ Instagram Direct xatosi: {e}")
+            if "Login required" in str(e):
+                cl.user_id = None
+                if os.path.exists(INSTAGRAM_SESSION_FILE):
+                    os.remove(INSTAGRAM_SESSION_FILE)
+            time.sleep(60)
+        time.sleep(40)
 
-# 4. WEBSERVER
+# 5. RENDER PORT UCHUN WEBSERVER
 app = Flask('')
 @app.route('/')
 def home(): return "Bot Active 🚀"
@@ -129,26 +139,33 @@ def home(): return "Bot Active 🚀"
 def run_web_server():
     app.run(host="0.0.0.0", port=10000)
 
-# 5. TELEGRAM COMMANDS
+# 6. TELEGRAM BANS VA KOMANDALARI
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     conn = sqlite3.connect(DB_FILE)
     conn.execute("INSERT OR IGNORE INTO users (telegram_id, created_at) VALUES (?, ?)", (message.chat.id, datetime.now().isoformat()))
     conn.commit()
     conn.close()
-    bot.send_message(message.chat.id, f"🤖 **Bot faol!**\nSizning Telegram ID: `{message.chat.id}`\n\nUshbu ID raqamni Instagram Direct'ga yozing.")
+    bot.send_message(message.chat.id, f"🤖 **Bot faol!**\n\nSizning Telegram ID raqamingiz: `{message.chat.id}`\n\nUshbu ID raqamni Instagram Direct'ga yozib yuboring.")
 
+# 7. ASOSIY ISHGA TUSHIRISH NUQTASI
 if __name__ == "__main__":
     init_db()
+    
+    # 1. Veb-serverni port 10000 da yoqish (Render talabi)
     threading.Thread(target=run_web_server, daemon=True).start()
+    
+    # 2. Telegram botni alohida xavfsiz oqimda yuritish
     logger.info("🤖 Bot to'liq faollashdi...")
     threading.Thread(target=bot.infinity_polling, daemon=True).start()
     
+    # 3. Instagram pollingni sekinroq ishga tushirish
     try:
         login_instagram()
         threading.Thread(target=instagram_polling, daemon=True).start()
     except Exception as ig_error:
-        logger.error(f"Instagram ulanishda xato: {ig_error}")
+        logger.error(f"🛑 Instagram boshlang'ich ulanishda xato, lekin Telegram ishlayapti: {ig_error}")
 
+    # Konteyner o'chib ketmasligi uchun cheksiz sikl
     while True:
         time.sleep(1)
