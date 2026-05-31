@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>InstaGram ↔ Telegram Bot Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #06080f;
+    --bg2:      #0d1117;
+    --bg3:      #131a24;
+    --border:   rgba(255,255,255,0.07);
+    --border2:  rgba(255,255,255,0.12);
+    --text:     #e8ecf4;
+    --muted:    #6b7894;
+    --accent:   #5b7cfa;
+    --accent2:  #a78bfa;
+    --green:    #34d399;
+    --red:      #f87171;
+    --amber:    #fbbf24;
+    --cyan:     #22d3ee;
+    --mono:     'Space Mono', monospace;
+    --display:  'Syne', sans-serif;
+    --glow:     0 0 24px rgba(91,124,250,0.18);
+    --glow2:    0 0 40px rgba(91,124,250,0.12);
+    --r:        10px;
+    --r2:       16px;
+  }
+
+  html { background: var(--bg); color: var(--text); font-family: var(--display); }
+  body { min-height: 100vh; }
+
+  /* ── Layout ── */
+  .app { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    padding: 28px 0;
+    display: flex; flex-direction: column;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  }
+  .logo {
+    padding: 0 24px 28px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 800; font-size: 17px; letter-spacing: -0.5px;
+  }
+  .logo span { color: var(--accent); }
+  .logo small { display: block; font-size: 10px; font-family: var(--mono); color: var(--muted); margin-top: 4px; letter-spacing: 1px; }
+  nav { padding: 20px 12px; flex: 1; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 14px; border-radius: var(--r);
+    font-size: 13px; font-weight: 500; color: var(--muted);
+    cursor: pointer; transition: all 0.18s; margin-bottom: 2px;
+    border: 1px solid transparent;
+  }
+  .nav-item:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+  .nav-item.active { color: var(--accent); background: rgba(91,124,250,0.1); border-color: rgba(91,124,250,0.2); }
+  .nav-item .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: currentColor; opacity: 0.6; flex-shrink: 0;
+  }
+  .status-badge {
+    margin: 0 12px; padding: 10px 14px;
+    background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.2);
+    border-radius: var(--r); font-size: 11px; font-family: var(--mono);
+  }
+  .status-badge .pulse {
+    display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--green); margin-right: 6px;
+    box-shadow: 0 0 8px var(--green); animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.3)} }
+
+  /* ── Main ── */
+  main { background: var(--bg); padding: 32px; overflow-x: hidden; }
+
+  /* ── Header ── */
+  .page-header {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    margin-bottom: 32px; padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .page-title { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+  .page-title span { color: var(--accent2); }
+  .page-sub { font-size: 12px; font-family: var(--mono); color: var(--muted); margin-top: 4px; }
+  .refresh-btn {
+    background: rgba(91,124,250,0.1); border: 1px solid rgba(91,124,250,0.25);
+    color: var(--accent); padding: 8px 16px; border-radius: var(--r);
+    font-size: 12px; font-family: var(--mono); cursor: pointer; transition: all 0.18s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .refresh-btn:hover { background: rgba(91,124,250,0.2); }
+
+  /* ── Stat cards ── */
+  .stats-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px;
+  }
+  .stat-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--r2); padding: 20px 22px;
+    position: relative; overflow: hidden; transition: border-color 0.2s;
+  }
+  .stat-card:hover { border-color: var(--border2); }
+  .stat-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  }
+  .stat-card.blue::before  { background: linear-gradient(90deg,var(--accent),var(--accent2)); }
+  .stat-card.green::before { background: linear-gradient(90deg,var(--green),var(--cyan)); }
+  .stat-card.amber::before { background: linear-gradient(90deg,var(--amber),#f97316); }
+  .stat-card.red::before   { background: linear-gradient(90deg,var(--red),#c084fc); }
+  .stat-label { font-size: 11px; font-family: var(--mono); color: var(--muted); letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 10px; }
+  .stat-value { font-size: 36px; font-weight: 800; letter-spacing: -1px; line-height: 1; }
+  .stat-value.blue  { color: var(--accent); }
+  .stat-value.green { color: var(--green); }
+  .stat-value.amber { color: var(--amber); }
+  .stat-value.red   { color: var(--red); }
+  .stat-icon {
+    position: absolute; right: 18px; top: 18px; font-size: 28px; opacity: 0.08;
+  }
+
+  /* ── 2-col grid ── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+  .three-col { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 20px; }
+
+  /* ── Panel ── */
+  .panel {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--r2); overflow: hidden;
+  }
+  .panel-head {
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 13px; font-weight: 600;
+  }
+  .panel-head .tag {
+    font-size: 10px; font-family: var(--mono); padding: 3px 8px;
+    border-radius: 20px; letter-spacing: 0.5px;
+  }
+  .tag-blue  { background: rgba(91,124,250,0.1); color: var(--accent); border: 1px solid rgba(91,124,250,0.2); }
+  .tag-green { background: rgba(52,211,153,0.1); color: var(--green); border: 1px solid rgba(52,211,153,0.2); }
+  .tag-red   { background: rgba(248,113,113,0.1); color: var(--red); border: 1px solid rgba(248,113,113,0.2); }
+  .panel-body { padding: 0; }
+
+  /* ── Table ── */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { padding: 10px 20px; text-align: left; font-size: 10px; font-family: var(--mono);
+       color: var(--muted); letter-spacing: 0.8px; text-transform: uppercase;
+       border-bottom: 1px solid var(--border); background: var(--bg3); font-weight: 400; }
+  td { padding: 11px 20px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .avatar {
+    width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border2);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600; background: var(--bg3); color: var(--accent2);
+    margin-right: 8px; vertical-align: middle;
+  }
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 20px; font-size: 10px;
+    font-family: var(--mono); font-weight: 500;
+  }
+  .badge-green { background: rgba(52,211,153,0.1); color: var(--green); border: 1px solid rgba(52,211,153,0.15); }
+  .badge-amber { background: rgba(251,191,36,0.1); color: var(--amber); border: 1px solid rgba(251,191,36,0.15); }
+  .badge-red   { background: rgba(248,113,113,0.1); color: var(--red); border: 1px solid rgba(248,113,113,0.15); }
+  .badge-blue  { background: rgba(91,124,250,0.1); color: var(--accent); border: 1px solid rgba(91,124,250,0.15); }
+  .badge-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+  /* ── Chart area ── */
+  .chart-wrap { padding: 20px; position: relative; height: 200px; }
+  canvas { border-radius: 4px; }
+
+  /* ── Activity list ── */
+  .activity-list { padding: 8px 0; }
+  .activity-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 10px 20px; border-bottom: 1px solid rgba(255,255,255,0.04);
+    transition: background 0.15s;
+  }
+  .activity-item:last-child { border-bottom: none; }
+  .activity-item:hover { background: rgba(255,255,255,0.02); }
+  .act-icon {
+    width: 32px; height: 32px; border-radius: var(--r); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 14px;
+    margin-top: 1px;
+  }
+  .act-icon.ig  { background: rgba(167,139,250,0.12); color: var(--accent2); border: 1px solid rgba(167,139,250,0.2); }
+  .act-icon.tg  { background: rgba(34,211,238,0.1); color: var(--cyan); border: 1px solid rgba(34,211,238,0.15); }
+  .act-icon.ok  { background: rgba(52,211,153,0.1); color: var(--green); border: 1px solid rgba(52,211,153,0.15); }
+  .act-icon.err { background: rgba(248,113,113,0.1); color: var(--red); border: 1px solid rgba(248,113,113,0.15); }
+  .act-text { flex: 1; }
+  .act-title { font-size: 12px; font-weight: 500; line-height: 1.4; }
+  .act-time  { font-size: 10px; font-family: var(--mono); color: var(--muted); margin-top: 3px; }
+
+  /* ── API input ── */
+  .api-bar {
+    display: flex; gap: 10px; padding: 20px;
+    border-bottom: 1px solid var(--border); background: var(--bg3);
+  }
+  .api-bar input {
+    flex: 1; background: var(--bg2); border: 1px solid var(--border2);
+    color: var(--text); border-radius: var(--r); padding: 8px 14px;
+    font-size: 12px; font-family: var(--mono); outline: none;
+  }
+  .api-bar input:focus { border-color: var(--accent); }
+  .api-bar button {
+    background: var(--accent); color: #fff; border: none;
+    border-radius: var(--r); padding: 8px 18px; font-size: 12px;
+    font-family: var(--mono); cursor: pointer; transition: opacity 0.15s;
+  }
+  .api-bar button:hover { opacity: 0.85; }
+
+  /* ── Empty / loading ── */
+  .empty { padding: 40px; text-align: center; color: var(--muted); font-size: 13px; font-family: var(--mono); }
+  .loading { animation: spin 1s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .skeleton { background: linear-gradient(90deg,var(--bg3) 25%,rgba(255,255,255,0.04) 50%,var(--bg3) 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 4px; height: 14px; }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+
+  /* ── Mono text ── */
+  .mono { font-family: var(--mono); }
+
+  /* ── Responsive ── */
+  @media (max-width: 1100px) {
+    .stats-grid { grid-template-columns: repeat(2,1fr); }
+    .two-col, .three-col { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 700px) {
+    .app { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    main { padding: 20px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="logo">
+      Bot<span>Link</span> HQ
+      <small>CONTROL CENTER v1.0</small>
+    </div>
+    <nav>
+      <div class="nav-item active" onclick="showTab('overview')"><span class="dot"></span> Overview</div>
+      <div class="nav-item" onclick="showTab('users')"><span class="dot"></span> Foydalanuvchilar</div>
+      <div class="nav-item" onclick="showTab('videos')"><span class="dot"></span> Videolar</div>
+      <div class="nav-item" onclick="showTab('activity')"><span class="dot"></span> Faollik</div>
+    </nav>
+    <div class="status-badge">
+      <span class="pulse"></span> Tizim ishlayapti
+    </div>
+  </aside>
+
+  <!-- ── Main content ── -->
+  <main>
+    <!-- Header -->
+    <div class="page-header">
+      <div>
+        <div class="page-title">Dashboard <span>Analitika</span></div>
+        <div class="page-sub" id="last-updated">Yuklanmoqda...</div>
+      </div>
+      <button class="refresh-btn" onclick="loadData()">↻ Yangilash</button>
+    </div>
+
+    <!-- API key bar -->
+    <div class="panel" style="margin-bottom: 24px;">
+      <div class="api-bar">
+        <input type="password" id="api-key" placeholder="API kalitni kiriting (DASHBOARD_SECRET_KEY)..." />
+        <button onclick="loadData()">Yuklash</button>
+      </div>
+    </div>
+
+    <!-- ── Overview tab ── -->
+    <div id="tab-overview">
+      <!-- Stat cards -->
+      <div class="stats-grid" id="stat-cards">
+        <div class="stat-card blue">
+          <div class="stat-label">Jami foydalanuvchilar</div>
+          <div class="stat-value blue skeleton" id="s-total" style="width:60px;height:36px;">&nbsp;</div>
+          <div class="stat-icon">👥</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-label">Bog'langan</div>
+          <div class="stat-value green skeleton" id="s-linked" style="width:60px;height:36px;">&nbsp;</div>
+          <div class="stat-icon">🔗</div>
+        </div>
+        <div class="stat-card amber">
+          <div class="stat-label">Video yuborildi</div>
+          <div class="stat-value amber skeleton" id="s-sent" style="width:60px;height:36px;">&nbsp;</div>
+          <div class="stat-icon">📹</div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-label">Xato videolar</div>
+          <div class="stat-value red skeleton" id="s-failed" style="width:60px;height:36px;">&nbsp;</div>
+          <div class="stat-icon">⚠️</div>
+        </div>
+      </div>
+
+      <div class="three-col">
+        <!-- Video chart -->
+        <div class="panel">
+          <div class="panel-head">
+            Video statistikasi
+            <span class="tag tag-blue">LIVE</span>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="videoChart" role="img" aria-label="Video yuborish statistikasi"></canvas>
+          </div>
+        </div>
+
+        <!-- User linking donut -->
+        <div class="panel">
+          <div class="panel-head">
+            Akkaunt holati
+            <span class="tag tag-green">PIE</span>
+          </div>
+          <div class="chart-wrap" style="height:200px;">
+            <canvas id="linkChart" role="img" aria-label="Bog'langan vs bog'lanmagan foydalanuvchilar"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent users table -->
+      <div class="panel" style="margin-bottom: 20px;">
+        <div class="panel-head">
+          So'nggi foydalanuvchilar
+          <span class="tag tag-blue">TOP 10</span>
+        </div>
+        <div class="panel-body">
+          <table>
+            <thead>
+              <tr>
+                <th>Telegram</th>
+                <th>Instagram</th>
+                <th>Holat</th>
+                <th>Sana</th>
+              </tr>
+            </thead>
+            <tbody id="users-tbody">
+              <tr><td colspan="4" class="empty">API kalitni kiritib Yuklash tugmasini bosing</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Users tab ── -->
+    <div id="tab-users" style="display:none;">
+      <div class="panel">
+        <div class="panel-head">
+          Barcha foydalanuvchilar
+          <span class="tag tag-blue" id="user-count-tag">—</span>
+        </div>
+        <div class="panel-body">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Telegram ID</th>
+                <th>Telegram username</th>
+                <th>Instagram</th>
+                <th>Holat</th>
+                <th>Bog'langan vaqt</th>
+              </tr>
+            </thead>
+            <tbody id="all-users-tbody">
+              <tr><td colspan="6" class="empty">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Videos tab ── -->
+    <div id="tab-videos" style="display:none;">
+      <div class="panel">
+        <div class="panel-head">
+          Video logi
+          <span class="tag tag-amber" id="video-count-tag">—</span>
+        </div>
+        <div class="panel-body">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Foydalanuvchi</th>
+                <th>Instagram media ID</th>
+                <th>Holat</th>
+                <th>Sana</th>
+              </tr>
+            </thead>
+            <tbody id="videos-tbody">
+              <tr><td colspan="5" class="empty">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Activity tab ── -->
+    <div id="tab-activity" style="display:none;">
+      <div class="panel">
+        <div class="panel-head">
+          Tizim faollik logi
+          <span class="tag tag-green">LIVE</span>
+        </div>
+        <div class="activity-list" id="activity-list">
+          <div class="empty">Ma'lumot yuklanmagan</div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+  /* ── State ── */
+  let statsData = null;
+  let usersData = [];
+  let videosData = [];
+  let videoChart = null;
+  let linkChart  = null;
+  const API_BASE = window.location.origin;
+
+  /* ── Helpers ── */
+  function apiKey() {
+    return document.getElementById('api-key').value.trim();
+  }
+  function fmt(d) {
+    if (!d) return '—';
+    return new Date(d).toLocaleString('uz-UZ', { dateStyle: 'short', timeStyle: 'short' });
+  }
+  function initials(name) {
+    if (!name) return '?';
+    return name.split(/[\s_]/g).slice(0,2).map(w=>w[0]||'').join('').toUpperCase() || name[0].toUpperCase();
+  }
+
+  /* ── Tabs ── */
+  function showTab(name) {
+    ['overview','users','videos','activity'].forEach(t => {
+      document.getElementById('tab-' + t).style.display = t === name ? '' : 'none';
+    });
+    document.querySelectorAll('.nav-item').forEach((el,i) => {
+      el.classList.toggle('active', ['overview','users','videos','activity'][i] === name);
+    });
+  }
+
+  /* ── Load data ── */
+  async function loadData() {
+    const key = apiKey();
+    if (!key) { alert('API kalitni kiriting'); return; }
+    const headers = { 'X-API-Key': key };
+    try {
+      const [sr, ur, vr] = await Promise.all([
+        fetch(`${API_BASE}/api/stats`,  { headers }),
+        fetch(`${API_BASE}/api/users`,  { headers }),
+        fetch(`${API_BASE}/api/videos`, { headers }),
+      ]);
+      if (!sr.ok) { alert('API xato: ' + sr.status + ' — kalitni tekshiring'); return; }
+      statsData  = await sr.json();
+      usersData  = await ur.json();
+      videosData = await vr.json();
+      renderAll();
+      document.getElementById('last-updated').textContent =
+        'Yangilandi: ' + new Date().toLocaleTimeString('uz-UZ');
+    } catch (e) {
+      console.error(e);
+      alert('Server bilan ulanishda xato. Backend ishga tushganligini tekshiring.');
+    }
+  }
+
+  function renderAll() {
+    renderStats();
+    renderCharts();
+    renderRecentUsers();
+    renderAllUsers();
+    renderVideos();
+    renderActivity();
+  }
+
+  /* ── Stats ── */
+  function renderStats() {
+    const s = statsData;
+    setVal('s-total',  s.total_users);
+    setVal('s-linked', s.linked_users);
+    setVal('s-sent',   s.videos_sent);
+    setVal('s-failed', s.videos_failed);
+  }
+  function setVal(id, val) {
+    const el = document.getElementById(id);
+    el.classList.remove('skeleton');
+    el.style.width = el.style.height = '';
+    el.textContent = val ?? 0;
+  }
+
+  /* ── Charts ── */
+  function renderCharts() {
+    const s = statsData;
+    // Bar chart – sent vs failed
+    if (videoChart) videoChart.destroy();
+    videoChart = new Chart(document.getElementById('videoChart'), {
+      type: 'bar',
+      data: {
+        labels: ['Yuborildi', 'Xato', 'Jami foydalanuvchi', 'Bog\'langan'],
+        datasets: [{
+          data: [s.videos_sent, s.videos_failed, s.total_users, s.linked_users],
+          backgroundColor: ['rgba(52,211,153,0.7)', 'rgba(248,113,113,0.7)', 'rgba(91,124,250,0.7)', 'rgba(167,139,250,0.7)'],
+          borderColor:     ['rgba(52,211,153,1)',   'rgba(248,113,113,1)',   'rgba(91,124,250,1)',   'rgba(167,139,250,1)'],
+          borderWidth: 1, borderRadius: 6,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b7894', font: { family: "'Space Mono'" } } },
+          y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b7894', font: { family: "'Space Mono'" }, stepSize: 1 }, beginAtZero: true }
+        }
+      }
+    });
+
+    // Donut – linked ratio
+    if (linkChart) linkChart.destroy();
+    const linked   = s.linked_users || 0;
+    const unlinked = Math.max(0, (s.total_users || 0) - linked);
+    linkChart = new Chart(document.getElementById('linkChart'), {
+      type: 'doughnut',
+      data: {
+        labels: ["Bog'langan", "Bog'lanmagan"],
+        datasets: [{
+          data: [linked, unlinked],
+          backgroundColor: ['rgba(52,211,153,0.8)', 'rgba(91,124,250,0.25)'],
+          borderColor:     ['rgba(52,211,153,1)',   'rgba(91,124,250,0.5)'],
+          borderWidth: 1,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, cutout: '68%',
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw}` } }
+        }
+      }
+    });
+  }
+
+  /* ── Recent users table ── */
+  function renderRecentUsers() {
+    const tb = document.getElementById('users-tbody');
+    const rows = statsData.recent_users || [];
+    if (!rows.length) { tb.innerHTML = '<tr><td colspan="4" class="empty">Foydalanuvchilar yo\'q</td></tr>'; return; }
+    tb.innerHTML = rows.map(u => `
+      <tr>
+        <td>
+          <span class="avatar">${initials(u.telegram_username)}</span>
+          <span class="mono" style="font-size:12px;">@${u.telegram_username || '—'}</span>
+        </td>
+        <td style="color:var(--accent2);font-size:12px;">${u.instagram_username ? '@' + u.instagram_username : '<span style="color:var(--muted)">—</span>'}</td>
+        <td>${u.instagram_username
+          ? '<span class="badge badge-green"><span class="badge-dot"></span>Bog\'langan</span>'
+          : '<span class="badge badge-amber"><span class="badge-dot"></span>Kutmoqda</span>'}</td>
+        <td style="font-size:11px;font-family:var(--mono);color:var(--muted);">${fmt(u.created_at)}</td>
+      </tr>`).join('');
+  }
+
+  /* ── All users ── */
+  function renderAllUsers() {
+    document.getElementById('user-count-tag').textContent = usersData.length + ' ta';
+    const tb = document.getElementById('all-users-tbody');
+    if (!usersData.length) { tb.innerHTML = '<tr><td colspan="6" class="empty">—</td></tr>'; return; }
+    tb.innerHTML = usersData.map((u, i) => `
+      <tr>
+        <td style="color:var(--muted);font-family:var(--mono);font-size:11px;">${i+1}</td>
+        <td class="mono" style="font-size:12px;">${u.telegram_id}</td>
+        <td>
+          <span class="avatar" style="width:24px;height:24px;font-size:9px;">${initials(u.telegram_username)}</span>
+          <span style="font-size:12px;">@${u.telegram_username || '—'}</span>
+        </td>
+        <td style="color:var(--accent2);font-size:12px;">${u.instagram_username ? '@' + u.instagram_username : '<span style="color:var(--muted)">—</span>'}</td>
+        <td>${u.instagram_user_id
+          ? '<span class="badge badge-green"><span class="badge-dot"></span>Active</span>'
+          : '<span class="badge badge-amber"><span class="badge-dot"></span>Pending</span>'}</td>
+        <td style="font-size:11px;font-family:var(--mono);color:var(--muted);">${fmt(u.linked_at)}</td>
+      </tr>`).join('');
+  }
+
+  /* ── Videos ── */
+  function renderVideos() {
+    document.getElementById('video-count-tag').textContent = videosData.length + ' ta';
+    const tb = document.getElementById('videos-tbody');
+    if (!videosData.length) { tb.innerHTML = '<tr><td colspan="5" class="empty">Videolar yo\'q</td></tr>'; return; }
+    tb.innerHTML = videosData.map((v, i) => {
+      const badge = v.status === 'sent'
+        ? '<span class="badge badge-green"><span class="badge-dot"></span>Yuborildi</span>'
+        : v.status === 'failed'
+          ? '<span class="badge badge-red"><span class="badge-dot"></span>Xato</span>'
+          : '<span class="badge badge-amber"><span class="badge-dot"></span>Kutmoqda</span>';
+      return `<tr>
+        <td style="color:var(--muted);font-family:var(--mono);font-size:11px;">${i+1}</td>
+        <td style="font-size:12px;">
+          <span style="color:var(--cyan);">@${v.telegram_username||'—'}</span>
+          <span style="color:var(--muted);"> / </span>
+          <span style="color:var(--accent2);">@${v.instagram_username||'—'}</span>
+        </td>
+        <td class="mono" style="font-size:11px;color:var(--muted);">${(v.instagram_media_id||'').slice(0,18)}…</td>
+        <td>${badge}</td>
+        <td style="font-size:11px;font-family:var(--mono);color:var(--muted);">${fmt(v.created_at)}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  /* ── Activity ── */
+  function renderActivity() {
+    const list = document.getElementById('activity-list');
+    const items = [];
+    (statsData.recent_users || []).forEach(u => {
+      if (u.linked_at) items.push({ type: 'ig', title: `@${u.telegram_username} Instagram bog'ladi (@${u.instagram_username})`, time: u.linked_at });
+      items.push({ type: 'tg', title: `@${u.telegram_username} ro'yxatdan o'tdi`, time: u.created_at });
+    });
+    (statsData.recent_videos || []).forEach(v => {
+      const t = v.status === 'sent' ? 'ok' : v.status === 'failed' ? 'err' : 'tg';
+      items.push({ type: t, title: `Video ${v.status === 'sent' ? 'yuborildi' : v.status === 'failed' ? 'xato' : 'kutmoqda'} → @${v.telegram_username||'?'}`, time: v.created_at });
+    });
+    items.sort((a,b) => new Date(b.time) - new Date(a.time));
+    if (!items.length) { list.innerHTML = '<div class="empty">Faollik yo\'q</div>'; return; }
+    const icons = { ig: '📸', tg: '✈️', ok: '✅', err: '❌' };
+    list.innerHTML = items.slice(0,30).map(it => `
+      <div class="activity-item">
+        <div class="act-icon ${it.type}">${icons[it.type]}</div>
+        <div class="act-text">
+          <div class="act-title">${it.title}</div>
+          <div class="act-time">${fmt(it.time)}</div>
+        </div>
+      </div>`).join('');
+  }
+</script>
+</body>
+</html>

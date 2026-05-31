@@ -1,0 +1,15 @@
+# requirements.txt
+
+# Telegram bot
+pyTelegramBotAPI==4.18.0
+
+# Instagram
+instagrapi==2.1.2
+
+# Dashboard API
+flask==3.0.3
+flask-cors==4.0.1
+
+# Utility
+python-dotenv==1.0.1
+requests==2.32.3
